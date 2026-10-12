@@ -1,0 +1,28 @@
+{
+  "name": "needx",
+  "version": "0.1.0",
+  "private": true,
+  "description": "NEEDX — a need-first marketplace. Say what you need; NEEDX finds who can provide it.",
+  "packageManager": "pnpm@11.24.0",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:web": "turbo run dev --filter=@needx/web",
+    "dev:api": "turbo run dev --filter=@needx/api",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "seed": "pnpm --filter @needx/api run seed",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\" --ignore-path .gitignore"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2",
+    "turbo": "^2.5.8",
+    "typescript": "^5.9.3"
+  }
+}

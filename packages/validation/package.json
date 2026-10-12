@@ -1,0 +1,23 @@
+{
+  "name": "@needx/validation",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared Zod schemas — the single source of truth for request validation on both API and web.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'no lint step for validation package'",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@needx/types": "workspace:*",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

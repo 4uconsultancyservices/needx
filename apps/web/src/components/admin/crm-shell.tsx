@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowUpRight,
+  Banknote,
   Bell,
   CreditCard,
   Crown,
@@ -26,11 +27,14 @@ import {
   Store,
   Tag,
   User as UserIcon,
+  UserCheck,
   Users,
   X,
 } from 'lucide-react';
+import type { StaffModule } from '@needx/types';
 import { isUserProvider, useCurrentUser, useLogout } from '@/hooks/use-auth';
 import { useAdminDashboard } from '@/hooks/use-admin';
+import { useMyStaffProfile } from '@/hooks/use-staff';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -46,56 +50,74 @@ import { cn, initials } from '@/lib/utils';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 
+interface CrmNavItem {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badgeKey?: 'openDisputes' | 'openReports' | 'activeNeeds';
+  moduleKey: StaffModule;
+}
+
 interface CrmNavSection {
   title: string;
-  items: Array<{
-    href: string;
-    label: string;
-    icon: React.ComponentType<{ className?: string }>;
-    badgeKey?: 'openDisputes' | 'openReports' | 'activeNeeds';
-  }>;
+  items: CrmNavItem[];
 }
 
 const CRM_SECTIONS: CrmNavSection[] = [
   {
     title: 'Executive & Customer CRM',
     items: [
-      { href: '/admin', label: 'Command Center', icon: LayoutDashboard },
-      { href: '/admin/users', label: 'Customer 360', icon: Users },
+      { href: '/admin', label: 'Command Center', icon: LayoutDashboard, moduleKey: 'dashboard' },
+      { href: '/admin/users', label: 'Customer 360', icon: Users, moduleKey: 'users' },
     ],
   },
   {
     title: 'Marketplace Operations',
     items: [
-      { href: '/admin/needs', label: 'Needs Demand Pipeline', icon: Package, badgeKey: 'activeNeeds' },
-      { href: '/admin/listings', label: 'Provider Inventory', icon: ShoppingBag },
-      { href: '/admin/orders', label: 'Orders & Escrow', icon: CreditCard },
-      { href: '/admin/categories', label: 'Taxonomy & Catalog', icon: Tag },
+      { href: '/admin/needs', label: 'Needs Demand Pipeline', icon: Package, badgeKey: 'activeNeeds', moduleKey: 'needs' },
+      { href: '/admin/listings', label: 'Provider Inventory', icon: ShoppingBag, moduleKey: 'listings' },
+      { href: '/admin/orders', label: 'Orders & Escrow', icon: CreditCard, moduleKey: 'orders' },
+      { href: '/admin/payments', label: 'Treasury & Ledger', icon: Banknote, moduleKey: 'payments' },
+      { href: '/admin/categories', label: 'Taxonomy & Catalog', icon: Tag, moduleKey: 'categories' },
     ],
   },
   {
     title: 'Trust & Case Resolution',
     items: [
-      { href: '/admin/reports', label: 'Incident Reports', icon: FileWarning, badgeKey: 'openReports' },
-      { href: '/admin/disputes', label: 'Dispute Arbitration', icon: Gavel, badgeKey: 'openDisputes' },
-      { href: '/admin/moderation', label: 'Audit Trail & Logs', icon: ScrollText },
-      { href: '/admin/reviews', label: 'CSAT & Reviews', icon: Star },
+      { href: '/admin/reports', label: 'Incident Reports', icon: FileWarning, badgeKey: 'openReports', moduleKey: 'reports' },
+      { href: '/admin/disputes', label: 'Dispute Arbitration', icon: Gavel, badgeKey: 'openDisputes', moduleKey: 'disputes' },
+      { href: '/admin/moderation', label: 'Audit Trail & Logs', icon: ScrollText, moduleKey: 'moderation' },
+      { href: '/admin/reviews', label: 'CSAT & Reviews', icon: Star, moduleKey: 'reviews' },
     ],
   },
   {
     title: 'Platform Config',
     items: [
-      { href: '/admin/notifications', label: 'Broadcast Studio', icon: Bell },
-      { href: '/admin/settings', label: 'Match Engine & Fees', icon: Sliders },
+      { href: '/admin/staff', label: 'Staff & Roles', icon: UserCheck, moduleKey: 'staff' },
+      { href: '/admin/notifications', label: 'Broadcast Studio', icon: Bell, moduleKey: 'notifications' },
+      { href: '/admin/settings', label: 'Match Engine & Fees', icon: Sliders, moduleKey: 'settings' },
     ],
   },
 ];
+
+function hasModuleAccess(
+  moduleKey: StaffModule,
+  permissions?: string[],
+  isSuperAdmin?: boolean,
+): boolean {
+  if (isSuperAdmin) return true;
+  if (!permissions || permissions.length === 0) return false;
+  if (permissions.includes('*')) return true;
+  if (permissions.includes(`${moduleKey}:*`)) return true;
+  return permissions.some((p) => p.startsWith(`${moduleKey}:`));
+}
 
 export function CrmShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: user } = useCurrentUser();
+  const { data: staffData } = useMyStaffProfile();
   const logout = useLogout();
   const isProvider = isUserProvider(user);
   const { data: stats } = useAdminDashboard();
@@ -103,6 +125,17 @@ export function CrmShell({ children }: { children: React.ReactNode }) {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [paletteQuery, setPaletteQuery] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const isSuperAdmin = Boolean(
+    user?.roles?.includes('SUPER_ADMIN') || staffData?.isSuperAdmin,
+  );
+
+  const visibleSections = CRM_SECTIONS.map((section) => ({
+    ...section,
+    items: section.items.filter((item) =>
+      hasModuleAccess(item.moduleKey, staffData?.permissions, isSuperAdmin),
+    ),
+  })).filter((section) => section.items.length > 0);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -128,8 +161,8 @@ export function CrmShell({ children }: { children: React.ReactNode }) {
     );
   };
 
-  // Quick navigation items for command palette
-  const allNavItems = CRM_SECTIONS.flatMap((s) => s.items);
+  // Quick navigation items for command palette filtered by staff access
+  const allNavItems = visibleSections.flatMap((s) => s.items);
   const filteredNavItems = paletteQuery
     ? allNavItems.filter((i) => i.label.toLowerCase().includes(paletteQuery.toLowerCase()))
     : allNavItems;
@@ -226,12 +259,14 @@ export function CrmShell({ children }: { children: React.ReactNode }) {
                   <div className="hidden text-left xl:block">
                     <p className="text-xs font-semibold text-ink leading-none">{user?.name ?? 'Admin'}</p>
                     <p className="mt-0.5 text-[10px] text-ink-faint font-mono">
-                      {user?.roles?.includes('SUPER_ADMIN') ? 'Super Admin' : 'Operator'}
+                      {isSuperAdmin
+                        ? 'Super Admin'
+                        : staffData?.designation || (user?.roles?.includes('STAFF') ? 'Staff Specialist' : 'Operator')}
                     </p>
                   </div>
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-60 p-2 shadow-card-hover">
+              <DropdownMenuContent align="end" className="w-64 p-2 shadow-card-hover">
                 <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg bg-canvas-alt/60 mb-1 border border-border/50">
                   <Avatar className="size-9 ring-1 ring-border shrink-0">
                     <AvatarImage src={user?.avatarUrl} alt={user?.name} />
@@ -242,10 +277,17 @@ export function CrmShell({ children }: { children: React.ReactNode }) {
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold text-ink truncate">{user?.name ?? 'Admin'}</p>
                     <p className="text-[10px] text-ink-faint truncate">{user?.email}</p>
-                    <span className="mt-0.5 inline-flex items-center gap-1 rounded bg-[#0f294a] px-1.5 py-0.2 text-[9px] font-bold text-dawn uppercase tracking-wider">
-                      <Crown className="size-2.5 text-dawn" />
-                      {user?.roles?.includes('SUPER_ADMIN') ? 'Super Admin' : 'Operator'}
-                    </span>
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      <span className="inline-flex items-center gap-1 rounded bg-[#0f294a] px-1.5 py-0.5 text-[9px] font-bold text-dawn uppercase tracking-wider">
+                        <Crown className="size-2.5 text-dawn" />
+                        {isSuperAdmin ? 'Super Admin' : staffData?.designation || 'Staff'}
+                      </span>
+                      {staffData?.department && (
+                        <span className="rounded bg-faith/15 px-1.5 py-0.5 text-[9px] font-semibold text-faith uppercase">
+                          {staffData.department.replace(/_/g, ' ')}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -314,7 +356,7 @@ export function CrmShell({ children }: { children: React.ReactNode }) {
         <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-64 shrink-0 flex-col border-r border-border/80 bg-surface/70 backdrop-blur-sm lg:flex">
           <div className="flex flex-1 flex-col justify-between overflow-y-auto px-4 py-5">
             <div className="space-y-6">
-              {CRM_SECTIONS.map((section) => (
+              {visibleSections.map((section) => (
                 <div key={section.title} className="space-y-1">
                   <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-ink-faint">
                     {section.title}
@@ -387,7 +429,7 @@ export function CrmShell({ children }: { children: React.ReactNode }) {
                 </button>
               </div>
               <div className="mt-4 flex-1 overflow-y-auto space-y-5">
-                {CRM_SECTIONS.map((section) => (
+                {visibleSections.map((section) => (
                   <div key={section.title} className="space-y-1">
                     <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-ink-faint">
                       {section.title}

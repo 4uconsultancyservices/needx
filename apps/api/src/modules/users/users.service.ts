@@ -5,12 +5,14 @@ import type { BecomeProviderInput, CreateAddressInput, UpdateProfileInput } from
 import { AppException } from '../../common/errors/app.exception';
 import { User, UserDocument } from './schemas/user.schema';
 import { Address, AddressDocument } from './schemas/address.schema';
+import { Employee } from '../staff/schemas/employee.schema';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<User>,
     @InjectModel(Address.name) private readonly addressModel: Model<Address>,
+    @InjectModel(Employee.name) private readonly employeeModel: Model<Employee>,
   ) {}
 
   async findByEmailWithSecrets(email: string): Promise<UserDocument | null> {
@@ -23,8 +25,41 @@ export class UsersService {
   async findByIdOrThrow(id: string): Promise<UserDocument> {
     if (!Types.ObjectId.isValid(id)) throw AppException.notFound('User');
     const user = await this.userModel.findById(id).exec();
-    if (!user) throw AppException.notFound('User');
-    return user;
+    if (user) return user;
+
+    // Check dedicated employees collection
+    const employee = await this.employeeModel.findById(id).exec();
+    if (employee) {
+      return {
+        id: employee._id.toString(),
+        _id: employee._id,
+        name: employee.name,
+        email: employee.email,
+        phone: employee.phone,
+        avatarUrl: employee.avatarUrl,
+        roles: employee.roles || ['STAFF', employee.role],
+        department: employee.department,
+        designation: employee.designation,
+        permissions: employee.permissions,
+        isSuspended: employee.isSuspended,
+        isBanned: employee.isSuspended,
+        toJSON: () => ({
+          id: employee._id.toString(),
+          _id: employee._id.toString(),
+          name: employee.name,
+          email: employee.email,
+          phone: employee.phone,
+          avatarUrl: employee.avatarUrl,
+          roles: employee.roles || ['STAFF', employee.role],
+          department: employee.department,
+          designation: employee.designation,
+          permissions: employee.permissions,
+          isBanned: employee.isSuspended,
+        }),
+      } as unknown as UserDocument;
+    }
+
+    throw AppException.notFound('User');
   }
 
   async findByPhone(phone: string): Promise<UserDocument | null> {
@@ -161,7 +196,16 @@ export class UsersService {
   // ---- Admin ----
 
   async listForAdmin(page: number, limit: number, q?: string) {
-    const filter = q ? { $text: { $search: q } } : {};
+    const filter: Record<string, any> = {
+      roles: { $nin: ['STAFF', 'ADMIN', 'SUPER_ADMIN', 'MODERATOR'] },
+    };
+    if (q && q.trim()) {
+      filter.$or = [
+        { name: { $regex: q.trim(), $options: 'i' } },
+        { email: { $regex: q.trim(), $options: 'i' } },
+        { phone: { $regex: q.trim(), $options: 'i' } },
+      ];
+    }
     const [items, total] = await Promise.all([
       this.userModel
         .find(filter)
@@ -227,5 +271,81 @@ export class UsersService {
     user.markModified('roles');
     await user.save();
     return user;
+  }
+
+  async listPublicProviders(params: {
+    page: number;
+    limit: number;
+    q?: string;
+    city?: string;
+    category?: string;
+    minRating?: number;
+    verifiedOnly?: boolean;
+    sort?: 'rating' | 'newest' | 'transactions';
+  }) {
+    const filter: Record<string, any> = {
+      isBanned: false,
+      $or: [
+        { 'provider.isProvider': true },
+        { roles: { $in: ['PROVIDER', 'BUSINESS'] } },
+      ],
+    };
+
+    if (params.city && params.city.trim()) {
+      filter.city = { $regex: new RegExp(`^${params.city.trim()}$`, 'i') };
+    }
+
+    if (params.category && params.category.trim()) {
+      filter['provider.serviceCategories'] = {
+        $elemMatch: { $regex: new RegExp(params.category.trim(), 'i') },
+      };
+    }
+
+    if (params.minRating && params.minRating > 0) {
+      filter['trust.ratingAverage'] = { $gte: params.minRating };
+    }
+
+    if (params.verifiedOnly) {
+      filter['$and'] = filter['$and'] || [];
+      filter['$and'].push({
+        $or: [
+          { 'trust.identityVerified': true },
+          { 'trust.businessVerified': true },
+        ],
+      });
+    }
+
+    if (params.q && params.q.trim()) {
+      const q = params.q.trim();
+      filter['$and'] = filter['$and'] || [];
+      filter['$and'].push({
+        $or: [
+          { name: { $regex: q, $options: 'i' } },
+          { 'provider.businessName': { $regex: q, $options: 'i' } },
+          { 'provider.description': { $regex: q, $options: 'i' } },
+          { bio: { $regex: q, $options: 'i' } },
+          { 'provider.serviceCategories': { $regex: q, $options: 'i' } },
+        ],
+      });
+    }
+
+    let sortOption: Record<string, 1 | -1> = { 'trust.ratingAverage': -1, 'trust.ratingCount': -1 };
+    if (params.sort === 'newest') {
+      sortOption = { createdAt: -1 };
+    } else if (params.sort === 'transactions') {
+      sortOption = { 'trust.completedTransactions': -1 };
+    }
+
+    const [items, total] = await Promise.all([
+      this.userModel
+        .find(filter)
+        .sort(sortOption)
+        .skip((params.page - 1) * params.limit)
+        .limit(params.limit)
+        .exec(),
+      this.userModel.countDocuments(filter).exec(),
+    ]);
+
+    return { items, total };
   }
 }

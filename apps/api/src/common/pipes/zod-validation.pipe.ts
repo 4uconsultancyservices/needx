@@ -1,4 +1,4 @@
-import { PipeTransform } from '@nestjs/common';
+import { ArgumentMetadata, PipeTransform } from '@nestjs/common';
 import type { ZodType } from 'zod';
 import { AppException } from '../errors/app.exception';
 
@@ -11,7 +11,12 @@ import { AppException } from '../errors/app.exception';
 export class ZodValidationPipe<T> implements PipeTransform {
   constructor(private readonly schema: ZodType<T>) {}
 
-  transform(value: unknown): T {
+  transform(value: unknown, metadata?: ArgumentMetadata): T {
+    // Custom param decorators like @CurrentUser() must not be validated against body schemas
+    if (metadata && metadata.type === 'custom') {
+      return value as T;
+    }
+
     const result = this.schema.safeParse(value);
     if (!result.success) {
       const fields: Record<string, string> = {};

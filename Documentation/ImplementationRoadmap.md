@@ -8,7 +8,7 @@
 
 This roadmap prioritizes work by: user-facing impact, blocking dependencies, and implementation complexity.
 
-**Current progress:** ~57% complete by verified implementation depth.  
+**Current progress:** ~72% complete by verified implementation depth.  
 **Goal:** Production-ready, mobile-first marketplace with all critical flows working end-to-end.
 
 ---
@@ -64,14 +64,14 @@ These were bugs or gaps that broke the user experience or mobile ergonomics.
 
 ---
 
-## Sprint 3 — UI Enhancement — 🟡 IN PROGRESS
+## Sprint 3 — UI Enhancement — ✅ COMPLETED
 
-### S3.1 — Redesign Hero Section
+### S3.1 — Redesign Hero Section — ✅ COMPLETED
 - **Priority:** High
 - **File:** [`apps/web/src/components/home/hero.tsx`](file:///d:/Development/4ucs/needx/apps/web/src/components/home/hero.tsx)
 - **Status:** Enhanced with mobile badge, responsive typography, and interactive need input.
 
-### S3.2 — Mobile Category Grid Polish
+### S3.2 — Mobile Category Grid Polish — ✅ COMPLETED
 - **Priority:** High
 - **File:** [`apps/web/src/components/home/category-grid.tsx`](file:///d:/Development/4ucs/needx/apps/web/src/components/home/category-grid.tsx)
 - **Status:** Verified live with 14 categories and custom icons.
@@ -86,10 +86,25 @@ These were bugs or gaps that broke the user experience or mobile ergonomics.
 - **File:** [`apps/web/src/components/home/provider-cta.tsx`](file:///d:/Development/4ucs/needx/apps/web/src/components/home/provider-cta.tsx)
 - **Result:** Replaced low-contrast classes with dark navy gradient and high-contrast typography.
 
-### S3.5 — Improve Search Page
+### S3.5 — Improve Search Page & Faceted Sidebar — ✅ COMPLETED
 - **Priority:** High
-- **File:** [`apps/web/src/app/search/page.tsx`](file:///d:/Development/4ucs/needx/apps/web/src/app/search/page.tsx)
-- **Change:** Add category filter pills, mode filters, and search suggestions.
+- **Files:** [`apps/web/src/app/search/page.tsx`](file:///d:/Development/4ucs/needx/apps/web/src/app/search/page.tsx), [`apps/web/src/components/search/search-filter-sidebar.tsx`](file:///d:/Development/4ucs/needx/apps/web/src/components/search/search-filter-sidebar.tsx)
+- **Result:** Added desktop faceted filter sidebar, category pills carousel, URL synchronization, price range presets, and active filter tags.
+
+### S3.6 — Dedicated Admin Payments & Ledger View — ✅ COMPLETED
+- **Priority:** High
+- **Files:** [`apps/web/src/app/admin/payments/page.tsx`](file:///d:/Development/4ucs/needx/apps/web/src/app/admin/payments/page.tsx), [`apps/api/src/modules/ledger/ledger.controller.ts`](file:///d:/Development/4ucs/needx/apps/api/src/modules/ledger/ledger.controller.ts)
+- **Result:** Double-entry platform ledger dashboard with revenue KPIs, gross volume, provider payables, escrow deposits, and full transaction logs linked in CRM shell.
+
+### S3.7 — Public Provider Directory & Rich Cards — ✅ COMPLETED
+- **Priority:** High
+- **Files:** [`apps/web/src/app/providers/page.tsx`](file:///d:/Development/4ucs/needx/apps/web/src/app/providers/page.tsx), [`apps/web/src/components/providers/provider-card.tsx`](file:///d:/Development/4ucs/needx/apps/web/src/components/providers/provider-card.tsx), [`apps/api/src/modules/users/users.controller.ts`](file:///d:/Development/4ucs/needx/apps/api/src/modules/users/users.controller.ts)
+- **Result:** Public `/providers` directory browsing professionals by city, rating, and category; linked in main Navbar and Footer.
+
+### S3.8 — Automated Expiration Sweeper — ✅ COMPLETED
+- **Priority:** Medium
+- **Files:** [`apps/api/src/modules/maintenance/maintenance.service.ts`](file:///d:/Development/4ucs/needx/apps/api/src/modules/maintenance/maintenance.service.ts), [`apps/api/src/modules/maintenance/maintenance.controller.ts`](file:///d:/Development/4ucs/needx/apps/api/src/modules/maintenance/maintenance.controller.ts)
+- **Result:** Periodic background worker sweeping stale needs and expired offers to EXPIRED status with admin trigger endpoint.
 
 ---
 

@@ -22,6 +22,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 
 const RADIUS_OPTIONS = [
   { value: 5, label: '5 km', desc: 'Hyperlocal' },
@@ -41,7 +42,7 @@ const POPULAR_CITIES = [
   { name: 'Hyderabad', state: 'Telangana', lat: 17.385, lng: 78.4867 },
 ];
 
-export function LocationSelector({ variant = 'navbar' }: { variant?: 'navbar' | 'compact' | 'hero' }) {
+export function LocationSelector({ variant = 'navbar', className }: { variant?: 'navbar' | 'compact' | 'hero'; className?: string }) {
   const { location, isDetecting, detectGpsLocation, setLocation, setRadius } = useUserLocation();
   const [open, setOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -76,23 +77,26 @@ export function LocationSelector({ variant = 'navbar' }: { variant?: 'navbar' | 
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="group flex items-center gap-1.5 rounded-full border border-border/80 bg-canvas-alt/70 px-3 py-1.5 text-xs font-medium text-ink transition-all hover:border-hope/40 hover:bg-hope-soft/20 cursor-pointer shadow-xs"
+          className={cn(
+            'group flex items-center gap-1 sm:gap-1.5 rounded-full border border-border/80 bg-canvas-alt/70 px-2 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-medium text-ink transition-all hover:border-hope/40 hover:bg-hope-soft/20 cursor-pointer shadow-xs shrink min-w-0 max-w-[125px] xs:max-w-[155px] sm:max-w-none',
+            className
+          )}
           title={`Active Location: ${location.addressLabel} (within ${radiusLabel})`}
         >
-          <div className="flex size-5 items-center justify-center rounded-full bg-trust/15 text-trust">
+          <div className="flex size-4.5 sm:size-5 shrink-0 items-center justify-center rounded-full bg-trust/15 text-trust">
             {location.isGps ? (
-              <Navigation className="size-3 text-trust animate-pulse" />
+              <Navigation className="size-2.5 sm:size-3 text-trust animate-pulse" />
             ) : (
-              <MapPin className="size-3 text-trust" />
+              <MapPin className="size-2.5 sm:size-3 text-trust" />
             )}
           </div>
-          <span className="max-w-[130px] truncate text-ink font-semibold">
+          <span className="max-w-[55px] xs:max-w-[85px] sm:max-w-[120px] md:max-w-[150px] truncate text-ink font-semibold">
             {location.locality ? location.locality.split(' ')[0] : location.cityName}
           </span>
           <span className="text-[11px] text-ink-faint hidden lg:inline">
             · {radiusLabel}
           </span>
-          <ChevronDown className="size-3 text-ink-faint transition-transform group-hover:translate-y-0.5" />
+          <ChevronDown className="size-3 text-ink-faint transition-transform group-hover:translate-y-0.5 shrink-0 hidden xs:inline" />
         </button>
       )}
 
@@ -130,12 +134,12 @@ export function LocationSelector({ variant = 'navbar' }: { variant?: 'navbar' | 
 
       {/* Modal Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md sm:max-w-lg p-0 overflow-hidden">
-          <div className="bg-gradient-to-r from-trust/10 via-hope/10 to-transparent p-5 border-b border-border/80">
+        <DialogContent className="w-[94vw] max-w-md sm:max-w-lg p-0 overflow-hidden rounded-2xl max-h-[90vh] flex flex-col">
+          <div className="bg-gradient-to-r from-trust/10 via-hope/10 to-transparent p-4 sm:p-5 border-b border-border/80 shrink-0">
             <DialogHeader>
               <div className="flex items-center gap-2 text-trust">
                 <Compass className="size-5" />
-                <DialogTitle className="font-display text-lg font-bold text-ink">
+                <DialogTitle className="font-display text-base sm:text-lg font-bold text-ink">
                   Set Your Location & Radius
                 </DialogTitle>
               </div>
@@ -145,7 +149,7 @@ export function LocationSelector({ variant = 'navbar' }: { variant?: 'navbar' | 
             </DialogHeader>
           </div>
 
-          <div className="p-5 space-y-5">
+          <div className="p-4 sm:p-5 space-y-4 sm:space-y-5 overflow-y-auto flex-1">
             {/* Primary GPS Button */}
             <Button
               type="button"
@@ -196,19 +200,19 @@ export function LocationSelector({ variant = 'navbar' }: { variant?: 'navbar' | 
                 </label>
                 <span className="font-semibold text-trust">{radiusLabel}</span>
               </div>
-              <div className="grid grid-cols-5 gap-1.5">
+              <div className="grid grid-cols-5 gap-1 sm:gap-1.5">
                 {RADIUS_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
                     type="button"
                     onClick={() => setRadius(opt.value)}
-                    className={`flex flex-col items-center justify-center rounded-lg border py-2 px-1 text-center transition-all cursor-pointer ${
+                    className={`flex flex-col items-center justify-center rounded-lg border py-1.5 sm:py-2 px-1 text-center transition-all cursor-pointer ${
                       location.radiusKm === opt.value
                         ? 'border-trust bg-trust/10 text-trust font-bold shadow-xs'
                         : 'border-border bg-canvas hover:bg-canvas-alt text-ink-soft'
                     }`}
                   >
-                    <span className="text-xs font-semibold">{opt.label}</span>
+                    <span className="text-[11px] sm:text-xs font-semibold leading-tight">{opt.label}</span>
                     <span className="text-[9px] text-ink-faint hidden sm:inline">{opt.desc}</span>
                   </button>
                 ))}

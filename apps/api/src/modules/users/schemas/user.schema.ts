@@ -1,6 +1,12 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 import { PROVIDER_TYPES, ROLES, type ProviderType, type Role } from '@needx/types';
+import {
+  CustomerPreferencesSchema,
+  BuyerMetricsSchema,
+  CustomerKycSchema,
+  CustomerLoyaltySchema,
+} from './customer-profile.schema';
 
 export type UserDocument = HydratedDocument<User>;
 
@@ -33,7 +39,7 @@ class GeoPointSchema {
   @Prop({ type: [Number] }) coordinates!: [number, number];
 }
 
-@Schema({ timestamps: true, collection: 'users' })
+@Schema({ timestamps: true, collection: 'customers' })
 export class User {
   @Prop({ required: true, trim: true }) name!: string;
 
@@ -71,6 +77,24 @@ export class User {
 
   @Prop() googleId?: string;
 
+  @Prop({ type: CustomerPreferencesSchema, default: () => ({}) })
+  preferences?: CustomerPreferencesSchema;
+
+  @Prop({ type: BuyerMetricsSchema, default: () => ({}) })
+  buyerMetrics?: BuyerMetricsSchema;
+
+  @Prop({ type: CustomerKycSchema, default: () => ({}) })
+  kyc?: CustomerKycSchema;
+
+  @Prop({ type: CustomerLoyaltySchema, default: () => ({}) })
+  loyalty?: CustomerLoyaltySchema;
+
+  @Prop({ type: [String], default: [] })
+  customerTags?: string[];
+
+  @Prop()
+  internalNotes?: string;
+
   createdAt?: Date;
   updatedAt?: Date;
   _id!: Types.ObjectId;
@@ -81,3 +105,11 @@ export const UserSchema = SchemaFactory.createForClass(User);
 UserSchema.index({ approxLocation: '2dsphere' });
 UserSchema.index({ 'provider.isProvider': 1 });
 UserSchema.index({ name: 'text', bio: 'text', 'provider.businessName': 'text' });
+UserSchema.index({ 'kyc.status': 1 });
+UserSchema.index({ 'loyalty.tier': 1 });
+UserSchema.index({ customerTags: 1 });
+
+// Aliases for clean semantic usage
+export { User as Customer, UserSchema as CustomerSchema };
+export type { UserDocument as CustomerDocument };
+

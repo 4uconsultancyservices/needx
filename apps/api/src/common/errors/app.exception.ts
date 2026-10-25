@@ -16,6 +16,10 @@ export class AppException extends HttpException {
     super({ code, message, fields }, status);
   }
 
+  static badRequest(message: string, code = 'BAD_REQUEST') {
+    return new AppException(code, message, HttpStatus.BAD_REQUEST);
+  }
+
   static notFound(entity: string, code = 'NOT_FOUND') {
     return new AppException(code, `${entity} not found`, HttpStatus.NOT_FOUND);
   }

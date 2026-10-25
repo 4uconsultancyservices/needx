@@ -9,6 +9,7 @@ const SECTIONS = [
     links: [
       { href: '/explore', label: 'Explore needs' },
       { href: '/listings', label: 'Browse listings' },
+      { href: '/providers', label: 'Find providers' },
       { href: '/needs/new', label: 'Post a need' },
       { href: '/categories/electronics', label: 'Categories' },
     ],

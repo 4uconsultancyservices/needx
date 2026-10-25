@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import type { LedgerEntryType } from '@needx/types';
 import { LedgerEntry } from './schemas/ledger-entry.schema';
 
@@ -124,6 +124,83 @@ export class LedgerService {
       this.model.countDocuments({ userId }).exec(),
     ]);
     return { items, total };
+  }
+
+  async listForAdmin(params: {
+    page: number;
+    limit: number;
+    type?: LedgerEntryType;
+    orderId?: string;
+    userId?: string;
+    search?: string;
+  }) {
+    const filter: Record<string, any> = {};
+    if (params.type) {
+      filter.type = params.type;
+    }
+    if (params.orderId) {
+      filter.orderId = Types.ObjectId.isValid(params.orderId)
+        ? new Types.ObjectId(params.orderId)
+        : params.orderId;
+    }
+    if (params.userId) {
+      filter.userId = Types.ObjectId.isValid(params.userId)
+        ? new Types.ObjectId(params.userId)
+        : params.userId;
+    }
+    if (params.search && params.search.trim()) {
+      filter.description = { $regex: params.search.trim(), $options: 'i' };
+    }
+
+    const [items, total] = await Promise.all([
+      this.model
+        .find(filter)
+        .sort({ createdAt: -1 })
+        .skip((params.page - 1) * params.limit)
+        .limit(params.limit)
+        .exec(),
+      this.model.countDocuments(filter).exec(),
+    ]);
+
+    return { items, total };
+  }
+
+  async getAdminSummary() {
+    const [aggregations, totalEntries] = await Promise.all([
+      this.model.aggregate<{ _id: string; totalAmount: number; count: number }>([
+        {
+          $group: {
+            _id: '$type',
+            totalAmount: { $sum: '$amount' },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+      this.model.countDocuments().exec(),
+    ]);
+
+    const statsMap: Record<string, { totalAmount: number; count: number }> = {};
+    for (const row of aggregations) {
+      statsMap[row._id] = { totalAmount: row.totalAmount, count: row.count };
+    }
+
+    const platformRevenue = statsMap['PLATFORM_FEE']?.totalAmount ?? 0;
+    const grossVolume = statsMap['CUSTOMER_PAYMENT']?.totalAmount ?? 0;
+    const providerPayables = statsMap['PROVIDER_PAYABLE']?.totalAmount ?? 0;
+    const depositsHeld = (statsMap['DEPOSIT']?.totalAmount ?? 0) - (statsMap['DEPOSIT_RELEASE']?.totalAmount ?? 0);
+    const refundsTotal = Math.abs(statsMap['REFUND']?.totalAmount ?? 0);
+    const payoutsTotal = Math.abs(statsMap['PAYOUT']?.totalAmount ?? 0);
+
+    return {
+      platformRevenue,
+      grossVolume,
+      providerPayables,
+      depositsHeld: Math.max(0, depositsHeld),
+      refundsTotal,
+      payoutsTotal,
+      totalEntries,
+      breakdown: statsMap,
+    };
   }
 
   async platformRevenueTotal(): Promise<number> {

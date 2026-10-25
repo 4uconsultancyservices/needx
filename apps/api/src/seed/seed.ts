@@ -5,6 +5,9 @@ import * as bcrypt from 'bcryptjs';
 import { addDays } from 'date-fns';
 
 import { User, UserSchema } from '../modules/users/schemas/user.schema';
+import { CustomerProfile, CustomerProfileSchema } from '../modules/users/schemas/customer-profile.schema';
+import { Employee, EmployeeSchema } from '../modules/staff/schemas/employee.schema';
+import { StaffProfile, StaffProfileSchema } from '../modules/staff/schemas/staff-profile.schema';
 import { Category, CategorySchema } from '../modules/categories/schemas/category.schema';
 import { Need, NeedSchema } from '../modules/needs/schemas/need.schema';
 import { Listing, ListingSchema } from '../modules/listings/schemas/listing.schema';
@@ -13,7 +16,14 @@ import { OfferHistory, OfferHistorySchema } from '../modules/offers/schemas/offe
 import { Order, OrderSchema } from '../modules/orders/schemas/order.schema';
 import { Review, ReviewSchema } from '../modules/reviews/schemas/review.schema';
 
-import { SEED_CATEGORIES, SEED_CITIES, SEED_LISTINGS, SEED_NEEDS, SEED_USERS } from './seed-data';
+import {
+  SEED_CATEGORIES,
+  SEED_CITIES,
+  SEED_LISTINGS,
+  SEED_NEEDS,
+  SEED_STAFF,
+  SEED_USERS,
+} from './seed-data';
 
 const MONGODB_URI = process.env.MONGODB_URI ?? 'mongodb://localhost:27017/needx';
 const SEED_PASSWORD = 'Needx@12345';
@@ -29,7 +39,10 @@ async function main() {
   console.log(`Connecting to ${MONGODB_URI} ...`);
   await mongoose.connect(MONGODB_URI);
 
-  const UserModel = mongoose.model(User.name, UserSchema);
+  const UserModel = mongoose.model(User.name, UserSchema); // collection: 'customers'
+  const EmployeeModel = mongoose.model(Employee.name, EmployeeSchema); // collection: 'employees'
+  const CustomerProfileModel = mongoose.model(CustomerProfile.name, CustomerProfileSchema);
+  const StaffProfileModel = mongoose.model(StaffProfile.name, StaffProfileSchema);
   const CategoryModel = mongoose.model(Category.name, CategorySchema);
   const NeedModel = mongoose.model(Need.name, NeedSchema);
   const ListingModel = mongoose.model(Listing.name, ListingSchema);
@@ -39,11 +52,26 @@ async function main() {
   const ReviewModel = mongoose.model(Review.name, ReviewSchema);
 
   if (RESET) {
-    console.log('Resetting collections...');
-    const models = [UserModel, CategoryModel, NeedModel, ListingModel, OfferModel, OfferHistoryModel, OrderModel, ReviewModel];
+    console.log('Resetting collections (customers, employees, etc.)...');
+    const models = [
+      UserModel,
+      EmployeeModel,
+      CustomerProfileModel,
+      StaffProfileModel,
+      CategoryModel,
+      NeedModel,
+      ListingModel,
+      OfferModel,
+      OfferHistoryModel,
+      OrderModel,
+      ReviewModel,
+    ];
     for (const m of models) {
       await (m as mongoose.Model<unknown>).deleteMany({});
     }
+    // Also drop legacy collections if they exist
+    try { await mongoose.connection.collection('users').drop(); } catch (_) {}
+    try { await mongoose.connection.collection('staff_profiles').drop(); } catch (_) {}
   }
 
   // ---- Categories ----
@@ -113,6 +141,288 @@ async function main() {
       { upsert: true, new: true },
     );
     userByEmail.set(u.email, doc);
+  }
+
+  // ---- Employees (Dedicated 'employees' collection) ----
+  console.log('Seeding employees into dedicated employees database collection...');
+  for (const s of SEED_STAFF) {
+    const roles = ['STAFF', s.role];
+    if (s.role === 'SUPER_ADMIN') roles.push('ADMIN');
+
+    const empDoc = await EmployeeModel.findOneAndUpdate(
+      { email: s.email },
+      {
+        $set: {
+          name: s.name,
+          email: s.email,
+          passwordHash,
+          phone: 'phone' in s ? (s as any).phone : undefined,
+          city: s.city,
+          department: s.department,
+          designation: s.designation,
+          role: s.role,
+          roles,
+          permissions: [...s.permissions],
+          assignedQueues: [...s.queues],
+          isSuspended: false,
+          lastActiveAt: new Date(),
+        },
+      },
+      { upsert: true, new: true },
+    );
+    userByEmail.set(s.email, empDoc);
+  }
+
+  // Ensure admin@needx.local is seeded in dedicated employees collection
+  const adminPasswordHash = await bcrypt.hash('Admin@123456', 10);
+  const adminEmp = await EmployeeModel.findOneAndUpdate(
+    { email: 'admin@needx.local' },
+    {
+      $set: {
+        name: 'Super Administrator',
+        email: 'admin@needx.local',
+        passwordHash: adminPasswordHash,
+        phone: '+919999000000',
+        city: 'Delhi',
+        department: 'EXECUTIVE',
+        designation: 'Principal Systems Administrator',
+        role: 'SUPER_ADMIN',
+        roles: ['STAFF', 'ADMIN', 'SUPER_ADMIN'],
+        permissions: ['*'],
+        assignedQueues: ['master-admin', 'support', 'disputes', 'finance'],
+        isSuspended: false,
+        lastActiveAt: new Date(),
+      },
+    },
+    { upsert: true, new: true },
+  );
+  userByEmail.set('admin@needx.local', adminEmp);
+
+  // ---- Customer Profiles ----
+  console.log('Seeding customer profiles with buyer metrics, KYC, & loyalty tiers...');
+  const customerProfilesData: Record<string, any> = {
+    'ananya@needx.local': {
+      buyerMetrics: {
+        totalNeedsPosted: 6,
+        totalOrdersPlaced: 5,
+        totalAmountSpent: 42500,
+        activeNeedsCount: 2,
+        averageOrderValue: 8500,
+        fulfillmentRate: 0.95,
+      },
+      loyalty: {
+        tier: 'PLATINUM',
+        points: 1250,
+        lifetimePoints: 2400,
+      },
+      kyc: {
+        status: 'VERIFIED',
+        documentType: 'PASSPORT',
+        idNumberMasked: 'Z****1842',
+        verifiedAt: new Date(),
+      },
+      customerTags: ['VIP', 'HIGH_VALUE', 'EARLY_ADOPTER', 'DELHI_HUB'],
+      internalNotes:
+        'High-volume electronics and equipment seeker. Extremely reliable payer with 100% dispute-free record. Priority support tier.',
+      preferences: {
+        preferredCategories: ['electronics', 'photography'],
+        preferredModes: ['RENT', 'BUY'],
+        searchRadiusKm: 30,
+        currency: 'INR',
+        budgetTier: 'PREMIUM',
+        notifications: { email: true, sms: true, push: true, whatsapp: true },
+      },
+    },
+    'rohan@needx.local': {
+      buyerMetrics: {
+        totalNeedsPosted: 3,
+        totalOrdersPlaced: 2,
+        totalAmountSpent: 18200,
+        activeNeedsCount: 1,
+        averageOrderValue: 9100,
+        fulfillmentRate: 0.88,
+      },
+      loyalty: {
+        tier: 'GOLD',
+        points: 620,
+        lifetimePoints: 950,
+      },
+      kyc: {
+        status: 'VERIFIED',
+        documentType: 'AADHAAR',
+        idNumberMasked: 'XXXXXXXX7821',
+        verifiedAt: new Date(),
+      },
+      customerTags: ['FREQUENT_BUYER', 'EQUIPMENT_RENTER'],
+      internalNotes:
+        'Regular tools and machinery renter. Verified business premises in Gurgaon.',
+      preferences: {
+        preferredCategories: ['tools-equipment', 'vehicles'],
+        preferredModes: ['RENT', 'BORROW'],
+        searchRadiusKm: 25,
+        currency: 'INR',
+        budgetTier: 'STANDARD',
+        notifications: { email: true, sms: false, push: true, whatsapp: true },
+      },
+    },
+    'sneha@needx.local': {
+      buyerMetrics: {
+        totalNeedsPosted: 2,
+        totalOrdersPlaced: 1,
+        totalAmountSpent: 6500,
+        activeNeedsCount: 1,
+        averageOrderValue: 6500,
+        fulfillmentRate: 0.75,
+      },
+      loyalty: {
+        tier: 'SILVER',
+        points: 180,
+        lifetimePoints: 240,
+      },
+      kyc: {
+        status: 'PENDING',
+        documentType: 'DRIVING_LICENSE',
+        idNumberMasked: 'TS****9021',
+      },
+      customerTags: ['NEW_SEEKER', 'EVENT_PLANNER'],
+      internalNotes:
+        'Event management coordinator. Submitted driving license for KYC verification pending operator review.',
+      preferences: {
+        preferredCategories: ['event-equipment', 'photography'],
+        preferredModes: ['HIRE', 'RENT'],
+        searchRadiusKm: 40,
+        currency: 'INR',
+        budgetTier: 'STANDARD',
+        notifications: { email: true, sms: true, push: false, whatsapp: false },
+      },
+    },
+    'vikram@needx.local': {
+      buyerMetrics: {
+        totalNeedsPosted: 1,
+        totalOrdersPlaced: 0,
+        totalAmountSpent: 0,
+        activeNeedsCount: 1,
+        averageOrderValue: 0,
+        fulfillmentRate: 0.5,
+      },
+      loyalty: {
+        tier: 'BRONZE',
+        points: 50,
+        lifetimePoints: 50,
+      },
+      kyc: {
+        status: 'REJECTED',
+        documentType: 'PAN',
+        idNumberMasked: 'ABC****12F',
+        rejectionReason: 'Document image was blurry and name mismatched with PAN database.',
+      },
+      customerTags: ['KYC_REVIEW_REQUIRED'],
+      internalNotes:
+        'KYC rejected due to unreadable document photocopy. Requested re-upload via SMS notification.',
+      preferences: {
+        preferredCategories: ['home-services'],
+        preferredModes: ['HIRE'],
+        searchRadiusKm: 20,
+        currency: 'INR',
+        budgetTier: 'ECONOMY',
+        notifications: { email: true, sms: true, push: false, whatsapp: false },
+      },
+    },
+    'ishita@needx.local': {
+      buyerMetrics: {
+        totalNeedsPosted: 4,
+        totalOrdersPlaced: 3,
+        totalAmountSpent: 28900,
+        activeNeedsCount: 1,
+        averageOrderValue: 9633,
+        fulfillmentRate: 1.0,
+      },
+      loyalty: {
+        tier: 'GOLD',
+        points: 780,
+        lifetimePoints: 1100,
+      },
+      kyc: {
+        status: 'VERIFIED',
+        documentType: 'AADHAAR',
+        idNumberMasked: 'XXXXXXXX4390',
+        verifiedAt: new Date(),
+      },
+      customerTags: ['VIP', 'CORPORATE_PROCUREMENT'],
+      internalNotes:
+        'Corporate client for office furniture and electronics. Direct billing setup active.',
+      preferences: {
+        preferredCategories: ['furniture', 'business-equipment'],
+        preferredModes: ['BUY', 'RENT'],
+        searchRadiusKm: 50,
+        currency: 'INR',
+        budgetTier: 'PREMIUM',
+        notifications: { email: true, sms: true, push: true, whatsapp: true },
+      },
+    },
+    'aditya@needx.local': {
+      buyerMetrics: {
+        totalNeedsPosted: 1,
+        totalOrdersPlaced: 1,
+        totalAmountSpent: 4500,
+        activeNeedsCount: 0,
+        averageOrderValue: 4500,
+        fulfillmentRate: 1.0,
+      },
+      loyalty: {
+        tier: 'BRONZE',
+        points: 90,
+        lifetimePoints: 90,
+      },
+      kyc: {
+        status: 'NOT_SUBMITTED',
+      },
+      customerTags: ['COMMUNITY_SEEKER'],
+      internalNotes: 'New platform member from Bangalore.',
+      preferences: {
+        preferredCategories: ['education', 'sports'],
+        preferredModes: ['BUY', 'BORROW'],
+        searchRadiusKm: 15,
+        currency: 'INR',
+        budgetTier: 'STANDARD',
+        notifications: { email: true, sms: false, push: true, whatsapp: false },
+      },
+    },
+  };
+
+  for (const [email, cData] of Object.entries(customerProfilesData)) {
+    const userDoc = userByEmail.get(email);
+    if (userDoc) {
+      await UserModel.updateOne(
+        { _id: userDoc._id },
+        {
+          $set: {
+            buyerMetrics: cData.buyerMetrics,
+            loyalty: cData.loyalty,
+            kyc: cData.kyc,
+            customerTags: cData.customerTags,
+            internalNotes: cData.internalNotes,
+            preferences: cData.preferences,
+          },
+        },
+      );
+
+      await CustomerProfileModel.findOneAndUpdate(
+        { userId: userDoc._id },
+        {
+          $set: {
+            userId: userDoc._id,
+            buyerMetrics: cData.buyerMetrics,
+            loyalty: cData.loyalty,
+            kyc: cData.kyc,
+            customerTags: cData.customerTags,
+            internalNotes: cData.internalNotes,
+            preferences: cData.preferences,
+          },
+        },
+        { upsert: true, new: true },
+      );
+    }
   }
 
   // ---- Listings ----
@@ -244,11 +554,20 @@ async function main() {
 
   console.log('\nSeed complete.');
   console.log(`\nDev login for ANY seeded account: password "${SEED_PASSWORD}"`);
-  console.log('  Admin:        admin@needx.local');
+  console.log('  Master Admin: superadmin@needx.local (Executive / Master Wildcard)');
+  console.log('  Admin:        admin@needx.local (Systems Administrator)');
+  console.log('  Staff:        support.deepak@needx.local (Customer Support)');
+  console.log('  Staff:        moderator.meera@needx.local (Trust & Safety Arbitrator)');
+  console.log('  Staff:        finance.rahul@needx.local (Finance & Escrow Controller)');
+  console.log('  Staff:        catalog.kavita@needx.local (Catalog Taxonomy Lead)');
+  console.log('  Staff:        ops.arjun@needx.local (Operations Lead)');
   console.log('  Provider:     aarav.provider@needx.local (Electronics rentals, Gurgaon)');
   console.log('  Provider:     priya.provider@needx.local (Photography services, Bangalore)');
-  console.log('  Regular user: ananya@needx.local (Delhi)');
-  console.log(`\n${categoryBySlug.size} categories, ${userByEmail.size} users, ${listingDocs.length} listings, ${needDocs.length} needs seeded.`);
+  console.log('  Seeker (VIP): ananya@needx.local (Platinum Loyalty, Verified KYC)');
+  console.log('  Seeker:       rohan@needx.local (Gold Loyalty, Verified KYC)');
+  console.log('  Seeker:       sneha@needx.local (Silver Loyalty, Pending KYC)');
+  console.log('  Seeker:       vikram@needx.local (Bronze Loyalty, Rejected KYC)');
+  console.log(`\n${categoryBySlug.size} categories, ${userByEmail.size} users (${SEED_STAFF.length + 1} staff profiles), ${listingDocs.length} listings, ${needDocs.length} needs seeded.`);
 
   await mongoose.disconnect();
 }

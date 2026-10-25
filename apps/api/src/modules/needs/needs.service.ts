@@ -144,6 +144,28 @@ export class NeedsService {
   async countByStatus(status: NeedStatus): Promise<number> {
     return this.needModel.countDocuments({ status }).exec();
   }
+
+  async sweepExpiredNeeds(): Promise<number> {
+    const now = new Date();
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const result = await this.needModel
+      .updateMany(
+        {
+          status: { $in: ['ACTIVE', 'MATCHING'] },
+          $or: [
+            { 'dateRange.end': { $lt: now } },
+            {
+              'dateRange.end': { $exists: false },
+              createdAt: { $lt: thirtyDaysAgo },
+            },
+          ],
+        },
+        { $set: { status: 'EXPIRED' } },
+      )
+      .exec();
+
+    return result.modifiedCount;
+  }
 }
 
 function escapeRegex(s: string): string {

@@ -207,4 +207,19 @@ export class OffersService {
     ]);
     return { items: await Promise.all(items.map((o) => this.applyExpiryIfNeeded(o))), total };
   }
+
+  async sweepExpiredOffers(): Promise<number> {
+    const now = new Date();
+    const result = await this.offerModel
+      .updateMany(
+        {
+          status: { $in: ['SENT', 'VIEWED', 'COUNTERED'] },
+          expiresAt: { $exists: true, $ne: null, $lt: now },
+        },
+        { $set: { status: 'EXPIRED' } },
+      )
+      .exec();
+
+    return result.modifiedCount;
+  }
 }

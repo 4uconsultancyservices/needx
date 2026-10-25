@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards, UsePipes } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards, UsePipes } from '@nestjs/common';
 import { createCategorySchema, updateCategorySchema, type CreateCategoryInput, type UpdateCategoryInput } from '@needx/validation';
 import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -14,6 +14,27 @@ export class CategoriesController {
   @Get()
   list() {
     return this.categoriesService.listActive();
+  }
+
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  @Get('admin/overview')
+  adminOverview() {
+    return this.categoriesService.getAdminOverview();
+  }
+
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  @Get('admin/:id/explorer')
+  adminExplorer(@Param('id') id: string) {
+    return this.categoriesService.getCategoryExplorer(id);
+  }
+
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  @Post('admin/bulk-status')
+  bulkSetStatus(@Body('ids') ids: string[], @Body('isActive') isActive: boolean) {
+    return this.categoriesService.bulkSetStatus(ids, Boolean(isActive));
   }
 
   @Public()
@@ -50,5 +71,12 @@ export class CategoriesController {
   @Patch(':id/activate')
   activate(@Param('id') id: string) {
     return this.categoriesService.setActive(id, true);
+  }
+
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  @Delete(':id')
+  deleteCategory(@Param('id') id: string) {
+    return this.categoriesService.deleteCategory(id);
   }
 }

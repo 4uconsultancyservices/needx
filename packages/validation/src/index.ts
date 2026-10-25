@@ -9,3 +9,5 @@ export * from './report';
 export * from './category';
 export * from './address';
 export * from './user';
+export * from './staff';
+export * from './customer-profile';

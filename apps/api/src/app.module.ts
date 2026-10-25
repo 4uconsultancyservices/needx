@@ -36,6 +36,8 @@ import { FavoritesModule } from './modules/favorites/favorites.module';
 import { DisputesModule } from './modules/disputes/disputes.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { MaintenanceModule } from './modules/maintenance/maintenance.module';
+import { StaffModule } from './modules/staff/staff.module';
 
 @Module({
   imports: [
@@ -85,6 +87,8 @@ import { AdminModule } from './modules/admin/admin.module';
     // ---- Platform ----
     UploadModule,
     AdminModule,
+    MaintenanceModule,
+    StaffModule,
   ],
   controllers: [AppController],
   providers: [

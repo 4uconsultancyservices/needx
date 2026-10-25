@@ -14,3 +14,5 @@ export * from './report';
 export * from './favorite';
 export * from './audit';
 export * from './match';
+export * from './customer-profile';
+export * from './staff';

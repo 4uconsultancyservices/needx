@@ -5,6 +5,7 @@ export const ROLES = [
   'USER',
   'PROVIDER',
   'BUSINESS',
+  'STAFF',
   'MODERATOR',
   'ADMIN',
   'SUPER_ADMIN',

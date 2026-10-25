@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type ListResponse } from '../lib/api-client';
-import type { Listing, Need, Order, PublicUser, Role, TrustInfo } from '@needx/types';
+import type { LedgerEntry, LedgerEntryType, Listing, Need, Order, PublicUser, Role, TrustInfo } from '@needx/types';
 
 export interface AdminUserRecord extends PublicUser {
   email?: string;
@@ -198,3 +198,36 @@ export function useAdminAuditLog(params: { page?: number; limit?: number }) {
     queryFn: () => api.get<{ items: Array<Record<string, unknown>>; total: number }>('/admin/audit-log', params),
   });
 }
+
+export interface AdminLedgerSummary {
+  platformRevenue: number;
+  grossVolume: number;
+  providerPayables: number;
+  depositsHeld: number;
+  refundsTotal: number;
+  payoutsTotal: number;
+  totalEntries: number;
+  breakdown: Record<string, { totalAmount: number; count: number }>;
+}
+
+export function useAdminLedgerEntries(params: {
+  page?: number;
+  limit?: number;
+  type?: LedgerEntryType;
+  orderId?: string;
+  userId?: string;
+  search?: string;
+}) {
+  return useQuery({
+    queryKey: ['admin', 'ledger-entries', params],
+    queryFn: () => api.get<ListResponse<LedgerEntry>>('/ledger/admin/entries', params),
+  });
+}
+
+export function useAdminLedgerSummary() {
+  return useQuery({
+    queryKey: ['admin', 'ledger-summary'],
+    queryFn: () => api.get<AdminLedgerSummary>('/ledger/admin/summary'),
+  });
+}
+

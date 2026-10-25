@@ -1,4 +1,6 @@
 import { HttpStatus, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcryptjs';
 import { randomBytes, createHash } from 'crypto';
 import { addMinutes, addHours, isAfter } from 'date-fns';
@@ -8,8 +10,10 @@ import { AppException } from '../../common/errors/app.exception';
 import { EMAIL_PROVIDER, type EmailProvider } from '../../common/providers/email/email-provider.interface';
 import { SMS_PROVIDER, type SmsProvider } from '../../common/providers/sms/sms-provider.interface';
 import { UsersService } from '../users/users.service';
+import { Employee } from '../staff/schemas/employee.schema';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { TokensService } from './tokens.service';
+import type { UserDocument } from '../users/schemas/user.schema';
 
 const BCRYPT_ROUNDS = 12;
 const OTP_TTL_MINUTES = 10;
@@ -22,6 +26,8 @@ function sha256(input: string): string {
 @Injectable()
 export class AuthService {
   constructor(
+    @InjectModel(Employee.name)
+    private readonly employeeModel: Model<Employee>,
     private readonly usersService: UsersService,
     private readonly tokensService: TokensService,
     private readonly auditLog: AuditLogService,
@@ -55,9 +61,55 @@ export class AuthService {
   }
 
   async validateCredentials(email: string, password: string) {
-    const user = await this.usersService.findByEmailWithSecrets(email);
-    // Same generic error whether the email doesn't exist or the password is
-    // wrong — never let an attacker enumerate registered emails.
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // 1. Check dedicated employees collection first (for staff/admin accounts)
+    const employee = await this.employeeModel
+      .findOne({ email: normalizedEmail })
+      .select('+passwordHash')
+      .exec();
+
+    if (employee) {
+      if (employee.isSuspended) {
+        throw new UnauthorizedException('This employee account has been suspended');
+      }
+      const valid = await bcrypt.compare(password, employee.passwordHash);
+      if (!valid) throw new UnauthorizedException('Invalid email or password');
+
+      const roles: Role[] = employee.roles?.length ? [...employee.roles] : ['STAFF', employee.role];
+      if (employee.role === 'SUPER_ADMIN' && !roles.includes('ADMIN')) roles.push('ADMIN');
+
+      return {
+        id: employee._id.toString(),
+        _id: employee._id,
+        name: employee.name,
+        email: employee.email,
+        phone: employee.phone,
+        avatarUrl: employee.avatarUrl,
+        roles,
+        department: employee.department,
+        designation: employee.designation,
+        permissions: employee.permissions,
+        isSuspended: employee.isSuspended,
+        isBanned: employee.isSuspended,
+        toJSON: () => ({
+          id: employee._id.toString(),
+          _id: employee._id.toString(),
+          name: employee.name,
+          email: employee.email,
+          phone: employee.phone,
+          avatarUrl: employee.avatarUrl,
+          roles,
+          department: employee.department,
+          designation: employee.designation,
+          permissions: employee.permissions,
+          isBanned: employee.isSuspended,
+        }),
+      } as unknown as UserDocument;
+    }
+
+    // 2. Check dedicated customers collection (for customer/buyer/provider accounts)
+    const user = await this.usersService.findByEmailWithSecrets(normalizedEmail);
     if (!user) throw new UnauthorizedException('Invalid email or password');
     if (user.isBanned) throw new UnauthorizedException('This account has been suspended');
 
@@ -72,6 +124,15 @@ export class AuthService {
   }
 
   async refresh(userId: string) {
+    if (Types.ObjectId.isValid(userId)) {
+      const employee = await this.employeeModel.findById(userId).exec();
+      if (employee) {
+        if (employee.isSuspended) throw new UnauthorizedException('This employee account has been suspended');
+        const roles: Role[] = employee.roles?.length ? [...employee.roles] : ['STAFF', employee.role];
+        return this.issueTokens({ id: employee._id.toString(), email: employee.email, roles });
+      }
+    }
+
     const user = await this.usersService.findByIdOrThrow(userId);
     if (user.isBanned) throw new UnauthorizedException('This account has been suspended');
     return this.issueTokens({ id: user.id, email: user.email, roles: user.roles });

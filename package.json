@@ -12,6 +12,8 @@
     "dev:web": "turbo run dev --filter=@needx/web",
     "dev:api": "turbo run dev --filter=@needx/api",
     "build": "turbo run build",
+    "build:web": "turbo run build --filter=@needx/web",
+    "build:api": "turbo run build --filter=@needx/api",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",

@@ -5,9 +5,9 @@ const apiOrigin = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   devIndicators: false,
-  // Self-contained server.js + minimal node_modules — the Dockerfile above
-  // copies exactly this output, keeping the production image small.
-  output: 'standalone',
+  // Self-contained server.js + minimal node_modules for Docker.
+  // On Vercel, omit 'standalone' so Vercel can deploy natively as Serverless Functions.
+  output: process.env.VERCEL ? undefined : 'standalone',
   transpilePackages: ['@needx/types', '@needx/validation'],
   images: {
     remotePatterns: [

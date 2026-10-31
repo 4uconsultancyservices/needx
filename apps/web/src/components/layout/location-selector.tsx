@@ -78,19 +78,19 @@ export function LocationSelector({ variant = 'navbar', className }: { variant?: 
           type="button"
           onClick={() => setOpen(true)}
           className={cn(
-            'group flex items-center gap-1 sm:gap-1.5 rounded-full border border-border/80 bg-canvas-alt/70 px-2 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-medium text-ink transition-all hover:border-hope/40 hover:bg-hope-soft/20 cursor-pointer shadow-xs shrink min-w-0 max-w-[125px] xs:max-w-[155px] sm:max-w-none',
+            'group flex items-center gap-1 sm:gap-1.5 rounded-full border border-border/80 bg-canvas-alt/70 px-1.5 xs:px-2 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-medium text-ink transition-all hover:border-hope/40 hover:bg-hope-soft/20 cursor-pointer shadow-xs shrink min-w-0 max-w-[95px] xs:max-w-[130px] sm:max-w-none',
             className
           )}
           title={`Active Location: ${location.addressLabel} (within ${radiusLabel})`}
         >
-          <div className="flex size-4.5 sm:size-5 shrink-0 items-center justify-center rounded-full bg-trust/15 text-trust">
+          <div className="flex size-4 sm:size-5 shrink-0 items-center justify-center rounded-full bg-trust/15 text-trust">
             {location.isGps ? (
-              <Navigation className="size-2.5 sm:size-3 text-trust animate-pulse" />
+              <Navigation className="size-2 sm:size-3 text-trust animate-pulse" />
             ) : (
-              <MapPin className="size-2.5 sm:size-3 text-trust" />
+              <MapPin className="size-2 sm:size-3 text-trust" />
             )}
           </div>
-          <span className="max-w-[55px] xs:max-w-[85px] sm:max-w-[120px] md:max-w-[150px] truncate text-ink font-semibold">
+          <span className="max-w-[45px] xs:max-w-[70px] sm:max-w-[120px] md:max-w-[150px] truncate text-ink font-semibold">
             {location.locality ? location.locality.split(' ')[0] : location.cityName}
           </span>
           <span className="text-[11px] text-ink-faint hidden lg:inline">

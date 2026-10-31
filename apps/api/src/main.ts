@@ -19,8 +19,27 @@ async function bootstrap() {
 
   app.use(helmet());
   app.use(cookieParser());
+  const isDev = config.get<string>('app.nodeEnv') !== 'production';
+  const configuredOrigin = config.get<string>('app.corsOrigin');
+
   app.enableCors({
-    origin: config.get<string>('app.corsOrigin'),
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      // Allow requests with no origin (mobile native apps, curl, server-to-server)
+      if (!origin) return callback(null, true);
+      if (origin === configuredOrigin) return callback(null, true);
+      if (isDev) {
+        // In local development, permit localhost, 127.0.0.1, and private LAN IPs (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+        const isLanOrLocal =
+          /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ||
+          /^https?:\/\/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/.test(origin) ||
+          /^https?:\/\/([a-zA-Z0-9-]+\.)*(local|lan)(:\d+)?$/.test(origin);
+
+        if (isLanOrLocal) {
+          return callback(null, true);
+        }
+      }
+      return callback(new Error(`Origin ${origin} not allowed by CORS`), false);
+    },
     credentials: true,
   });
   app.setGlobalPrefix('api/v1');

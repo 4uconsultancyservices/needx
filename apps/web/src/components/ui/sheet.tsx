@@ -44,3 +44,6 @@ export function SheetHeader({ className, ...props }: React.HTMLAttributes<HTMLDi
 export function SheetTitle({ className, ...props }: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>) {
   return <DialogPrimitive.Title className={cn('font-display text-lg font-semibold text-ink', className)} {...props} />;
 }
+export function SheetDescription({ className, ...props }: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>) {
+  return <DialogPrimitive.Description className={cn('text-xs text-ink-soft', className)} {...props} />;
+}

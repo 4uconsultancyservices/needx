@@ -9,7 +9,10 @@ let socket: Socket | null = null;
  * handling needed here (see WsJwtGuard on the API side). */
 export function getSocket(): Socket {
   if (socket) return socket;
-  const origin = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+  let origin = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+  if (typeof window !== 'undefined' && origin.includes('localhost') && window.location.hostname !== 'localhost') {
+    origin = origin.replace('localhost', window.location.hostname);
+  }
   socket = io(`${origin}/ws/messages`, {
     withCredentials: true,
     autoConnect: true,
